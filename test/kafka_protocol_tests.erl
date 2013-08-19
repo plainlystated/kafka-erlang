@@ -53,3 +53,17 @@ compression_off_test() ->
     {M, Size} = kafka_protocol:parse_messages(B),
     ?assertEqual([<<"apple">>, <<"banana">>, <<"carrot">>], M),
     ?assertEqual(Size, size(B)).
+
+fetch_without_partition_assumes_partition_0_test() ->
+    Req = kafka_protocol:fetch_request(<<"tpc">>, 123, 1024),
+    ?assertEqual(
+      <<0,0,0,23,0,1,0,3,116,112,99,0,0,0,0,0,0,0,0,0,0,0,123,0,0,4,0>>,
+      Req
+    ).
+
+fetch_with_partition_test() ->
+    Req = kafka_protocol:fetch_request(<<"tpc">>, 5, 123, 1024),
+    ?assertEqual(
+      <<0,0,0,23,0,1,0,3,116,112,99,0,0,0,5,0,0,0,0,0,0,0,123,0,0,4,0>>,
+      Req
+    ).
