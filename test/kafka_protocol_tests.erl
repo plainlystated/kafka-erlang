@@ -44,3 +44,12 @@ offset_test() ->
 %%     {M2, R2} = kafka_parser:parse_messages(<<R1/binary, B2/binary>>),
 %%     ?assertEqual([<<"asoneuhansoe uhansoetu haonseuht aonseuht aosenut">>], M2),
 %%     ?assertEqual(<<>>, R2).
+
+compression_off_test() ->
+  % magic value is 1 (compression enabled)
+  % compression attribute is 0 (no compression codec, meaning payload is uncompressed)
+  B = <<0,0,0,11,1,0,169,46,208,80,97,112,112,108,101,0,0,0,12,1,0,3,139,103,207,
+          98,97,110,97,110,97,0,0,0,12,1,0,184,190,148,206,99,97,114,114,111,116>>,
+    {M, Size} = kafka_protocol:parse_messages(B),
+    ?assertEqual([<<"apple">>, <<"banana">>, <<"carrot">>], M),
+    ?assertEqual(Size, size(B)).
