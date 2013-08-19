@@ -5,7 +5,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/5, get_current_offset/1, get_offsets/3, fetch/1, set_offset/2]).
+-export([start_link/5, start_link/6, get_current_offset/1, get_offsets/3, fetch/1, set_offset/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -17,7 +17,8 @@
                 current_offset,
                 offset_cb,
                 max_size = 1048576,
-                topic
+                topic,
+                partition
 }).
 
 %%%===================================================================
@@ -25,7 +26,10 @@
 %%%===================================================================
 
 start_link(Host, Port, Topic, Offset, OffsetCb) ->
-    gen_server:start_link(?MODULE, [Host, Port, Topic, Offset, OffsetCb], []).
+    start_link(Host, Port, Topic, 0, Offset, OffsetCb).
+
+start_link(Host, Port, Topic, Partition, Offset, OffsetCb) ->
+    gen_server:start_link(?MODULE, [Host, Port, Topic, Partition, Offset, OffsetCb], []).
 
 get_current_offset(C) ->
     gen_server:call(C, get_current_offset).
@@ -43,18 +47,19 @@ fetch(C) ->
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Host, Port, Topic, Offset, OffsetCb]) ->
+init([Host, Port, Topic, Partition, Offset, OffsetCb]) ->
     {ok, Socket} = gen_tcp:connect(Host, Port,
                                    [binary, {active, false}, {packet, raw}]),
     {ok, #state{socket = Socket,
                 topic = Topic,
+                partition = Partition,
                 start_offset = Offset,
                 current_offset = Offset,
                 offset_cb = OffsetCb
                }}.
 
-handle_call(fetch, _From, #state{current_offset = Offset} = State) ->
-    Req = kafka_protocol:fetch_request(State#state.topic, Offset, State#state.max_size),
+handle_call(fetch, _From, #state{current_offset = Offset, partition = Partition} = State) ->
+    Req = kafka_protocol:fetch_request(State#state.topic, Partition, Offset, State#state.max_size),
     ok = gen_tcp:send(State#state.socket, Req),
 
     case gen_tcp:recv(State#state.socket, 6) of
@@ -63,7 +68,7 @@ handle_call(fetch, _From, #state{current_offset = Offset} = State) ->
         {ok, <<L:32/integer, 0:16/integer>>} ->
             {ok, Data} = gen_tcp:recv(State#state.socket, L-2),
             {Messages, Size} = kafka_protocol:parse_messages(Data),
-            (State#state.offset_cb)(State#state.topic, Offset, Offset + Size),
+            update_offset_callback(State, Offset, Offset + Size),
             {reply, {ok, Messages}, State#state{current_offset = Offset + Size}};
         {ok, B} ->
             {reply, {error, B}, State}
@@ -106,4 +111,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+update_offset_callback(#state{offset_cb = Callback, topic = Topic, partition = Partition}, OldOffset, NewOffset) ->
+  case erlang:fun_info(Callback, arity) of
+    {arity, 3} -> Callback(Topic, OldOffset, NewOffset);
+    {arity, 4} -> Callback(Topic, Partition, OldOffset, NewOffset)
+  end.
 
