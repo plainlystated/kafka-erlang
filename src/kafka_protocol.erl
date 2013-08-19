@@ -43,15 +43,23 @@ parse_messages(<<>>, Acc, Size) ->
     {lists:reverse(Acc), Size};
 
 parse_messages(<<L:32/integer, _/binary>> = B, Acc, Size) when size(B) >= L + 4->
-    MsgLength = L - 4 - 1,
-    <<_:32/integer, 0:8/integer, _Check:32/integer,
-      Msg:MsgLength/binary,
-      Rest/bitstring>> = B,
+    {Msg, Rest} = parse_message(L, B),
     parse_messages(Rest, [Msg | Acc], Size + L + 4);
 
 parse_messages(_B, Acc, Size) ->
     {lists:reverse(Acc), Size}.
 
+parse_message(MsgLength, <<_:32/integer, 0:8/integer, Rest0/bitstring>>) ->
+    % Magic bit = 0
+    PayloadLength = MsgLength - 4 - 1,
+    << _Check:32/integer, Msg:PayloadLength/binary, Rest/bitstring>> = Rest0,
+    {Msg, Rest};
+
+parse_message(MsgLength, <<_:32/integer, 1:8/integer, Rest0/bitstring>>) ->
+    % Magic bit = 0, codec = none
+    PayloadLength = MsgLength - 4 - 1 - 1,
+    <<0:8, _Check:32/integer, Msg:PayloadLength/binary, Rest/bitstring>> = Rest0,
+    {Msg, Rest}.
 
 parse_offsets(B) ->
     <<_:32/integer, Offsets/binary>> = B,
