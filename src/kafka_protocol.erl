@@ -4,7 +4,7 @@
 -module(kafka_protocol).
 -author('Knut Nesheim <knutin@gmail.com>').
 
--export([fetch_request/3, offset_request/3]).
+-export([fetch_request/3, fetch_request/4, offset_request/3]).
 -export([parse_messages/1, parse_offsets/1]).
 
 -define(FETCH, 1).
@@ -12,6 +12,9 @@
 
 
 fetch_request(Topic, Offset, MaxSize) ->
+    fetch_request(Topic, 0, Offset, MaxSize).
+
+fetch_request(Topic, Partition, Offset, MaxSize) ->
     TopicSize = size(Topic),
 
     RequestSize = 2 + 2 + TopicSize + 4 + 8 + 4,
@@ -20,7 +23,7 @@ fetch_request(Topic, Offset, MaxSize) ->
       ?FETCH:16/integer,
       TopicSize:16/integer,
       Topic/binary,
-      0:32/integer,
+      Partition:32/integer,
       Offset:64/integer,
       MaxSize:32/integer>>.
 
