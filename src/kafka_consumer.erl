@@ -68,7 +68,7 @@ handle_call(fetch, _From, #state{current_offset = Offset, partition = Partition}
         {ok, <<L:32/integer, 0:16/integer>>} ->
             {ok, Data} = gen_tcp:recv(State#state.socket, L-2),
             {Messages, Size} = kafka_protocol:parse_messages(Data),
-            (State#state.offset_cb)(State#state.topic, Offset, Offset + Size),
+            update_offset_callback(State, Offset, Offset + Size),
             {reply, {ok, Messages}, State#state{current_offset = Offset + Size}};
         {ok, B} ->
             {reply, {error, B}, State}
@@ -111,4 +111,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+update_offset_callback(#state{offset_cb = Callback, topic = Topic, partition = Partition}, OldOffset, NewOffset) ->
+  case erlang:fun_info(Callback, arity) of
+    {arity, 3} -> Callback(Topic, OldOffset, NewOffset);
+    {arity, 4} -> Callback(Topic, Partition, OldOffset, NewOffset)
+  end.
 
