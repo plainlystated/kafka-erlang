@@ -74,8 +74,8 @@ handle_call(fetch, _From, #state{current_offset = Offset, partition = Partition}
             {reply, {error, B}, State}
     end;
 
-handle_call({get_offsets, Time, MaxNumber}, _From, State) ->
-    Req = kafka_protocol:offset_request(State#state.topic, Time, MaxNumber),
+handle_call({get_offsets, Time, MaxNumber}, _From, #state{partition = Partition}=State) ->
+    Req = kafka_protocol:offset_request(State#state.topic, Partition, Time, MaxNumber),
     ok = gen_tcp:send(State#state.socket, Req),
 
     case gen_tcp:recv(State#state.socket, 6) of

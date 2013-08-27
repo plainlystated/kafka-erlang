@@ -67,3 +67,19 @@ fetch_with_partition_test() ->
       <<0,0,0,23,0,1,0,3,116,112,99,0,0,0,5,0,0,0,0,0,0,0,123,0,0,4,0>>,
       Req
     ).
+
+get_offsets_defaults_to_partition_0_test() ->
+  Req = kafka_protocol:offset_request(<<"tpc">>, -1, 1),
+  io:format("~p~n", [Req]),
+    ?assertEqual(
+      <<0,0,0,23,0,4,0,3,116,112,99,0,0,0,0,255,255,255,255,255,255,255,255,0,0,0,1>>,
+      Req
+    ).
+
+get_offsets_queries_arbitrary_partition_test() ->
+  Req = kafka_protocol:offset_request(<<"tpc">>, 5, -1, 1),
+  io:format("~p~n", [Req]),
+    ?assertEqual(
+      <<0,0,0,23,0,4,0,3,116,112,99,0,0,0,5,255,255,255,255,255,255,255,255,0,0,0,1>>,
+      Req
+    ).
